@@ -6,8 +6,6 @@
  */
 
 
-
-
 //stdin_nonBlock.h 0.15
 
 //0.15 continuation of 0.10-7's issue... which'll be relevent elsewhere:
@@ -37,7 +35,7 @@
 //       adding mehPL, some usage-notes, and uploading.
 //0.10-5 switching to errno_handleError0.15
 //0.10-4 A/O Debian (for PUAT 0.75's 'test' not working (for Tiny84:
-//                   'resolutionDetector'))
+//							'resolutionDetector'))
 //       FIXING STDIN_NONBLOCK NO LONGER WORKS (with Debian)
 //       Looking Into It.
 //       errno=11: 'Resource temporarily unavailable' (was 35 on OSX)
@@ -148,23 +146,23 @@ int stdinNB_init(void)
                      "\n IGNORING that errno! Debug that shizzle!", 
                         ERRHANDLE_DONT_RETURN);
 
-   // Set STDIN non-blocking (Still requires Return)
-   //int flags = fcntl(0, F_GETFL);
-   int flags = fcntl(fileno(stdin), F_GETFL);
-   flags |= O_NONBLOCK;
-   //fcntl(0, F_SETFL, flags);
-   fcntl(fileno(stdin), F_SETFL, flags);
+	// Set STDIN non-blocking (Still requires Return)
+	//int flags = fcntl(0, F_GETFL);
+	int flags = fcntl(fileno(stdin), F_GETFL);
+	flags |= O_NONBLOCK;
+	//fcntl(0, F_SETFL, flags);
+	fcntl(fileno(stdin), F_SETFL, flags);
 
-   errno_handleError("Couldn't open stdin.", 1);
+	errno_handleError("Couldn't open stdin.", 1);
 
-   return 0;
+	return 0;
 }
 
 //Either returns a character stored in an int
 // or returns -1 if no data's available
 int stdinNB_getChar(void)
 {
-   unsigned char kbChar;
+	unsigned char kbChar;
 
 
    //a/o 0.15:
@@ -193,30 +191,30 @@ int stdinNB_getChar(void)
    }
 
 
-   kbChar = fgetc(stdin); //getchar();
+	kbChar = fgetc(stdin); //getchar();
 
-   //This error (35) is for MacOS (10.5.8)
-   //"Resource Temporarily Unavailable" isn't an error...
-   //Debian replies: errno=11: 'Resource temporarily unavailable'
+	//This error (35) is for MacOS (10.5.8)
+	//"Resource Temporarily Unavailable" isn't an error...
+	//Debian replies: errno=11: 'Resource temporarily unavailable'
 //This is defined in 'man errno.h' as:
 //  EAGAIN          Resource temporarily unavailable
 // (and was verified as '11' in 'gcc -E -dM ...'
 #ifdef EAGAIN
-   if(errno == EAGAIN)
+	if(errno == EAGAIN)
 #else
-   #error "Not gonna let you get away with just a warning..."
-   #error " 'EAGAIN' is not defined, so we're defaulting to #35"
-   #error "  which is the value on MacOS 10.5.8"
-   #error "These errors can be turned into warnings, if you're cautious"
+	#error "Not gonna let you get away with just a warning..."
+	#error " 'EAGAIN' is not defined, so we're defaulting to #35"
+	#error "  which is the value on MacOS 10.5.8"
+	#error "These errors can be turned into warnings, if you're cautious"
    #error "ALSO, see above!"
-   if(errno == 35)
+	if(errno == 35)
 #endif
-   {
-      errno = 0;
-      return -1;
-   }
-   else
-      return (int)kbChar;
+	{
+		errno = 0;
+		return -1;
+	}
+	else
+		return (int)kbChar;
 }
 
 #endif
@@ -282,7 +280,7 @@ int stdinNB_getChar(void)
  *    and add a link at the pages above.
  *
  * This license added to the original file located at:
- * /home/meh/audioThing/7p16-git/_commonCode_localized/__std_wrappers/stdin_nonBlock/0.15/stdin_nonBlock.h
+ * /home/meh/_commonCode/__std_wrappers/stdin_nonBlock/0.10/stdin_nonBlock.h
  *
  *    (Wow, that's a lot longer than I'd hoped).
  *
