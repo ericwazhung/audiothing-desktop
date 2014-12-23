@@ -1,0 +1,41 @@
+Playback rewind (s=-1)
+AddNotes during playback (esp FFWD?) REMOVE <Enter>???
+realtime commands argument
+   -rt='s=-1,v=10'
+stdinNB string-handling -> stdinNB?
+extract minutes/seconds from auTx
+   -> Wav?
+
+
+old TODOs, many now TODones:
+
+(OSX)
+Make note to use /dev/rdisk# rather than /dev/disk# 
+	MUCH FASTER for EXTRACTION (not playback)
+
+
+https://communities.vmware.com/message/1462318
+"I don't know for sure, but I believe the original choice of /dev/disk was
+made with some incorrect assumptions - OS X (and BSD in general) shows
+/dev/rdisk* as character devices. In the Unix world these are typically not
+seekable (for example serial ports), so disk IO is generally limited to
+block devices only. However, that's not the case for rdisk devices in OS X
+- they can seek just fine, as long as the IOs are sector aligned."
+
+e.g. audioThing -b=0x04 won't work, it's not sector-aligned.
+([How] does this work with extraction?)
+and searching...?
+
+
+
+Don't overwrite files!
+
+Marked Chunks sorted by loopNum -- crashes when there're no marked chunks
+
+
+PLAYBACK:
+sudo nice -n -20 _BUILD/audioThing -b=0x1f1a000 /dev/rdisk2
+
+
+-----------
+revisit _wtf/main.c?
