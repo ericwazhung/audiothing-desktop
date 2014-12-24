@@ -246,7 +246,8 @@ int memoFragments[USAGETABLE_SIZE][USAGETABLE_SIZE] =
 
 
 
-
+int sampleRate = 19230;
+int srAssumed = 1;
 
 off_t numBlocksPerChunk;
 
@@ -847,7 +848,8 @@ int main(int argc, char *argv[])
 
    int headerType = loadHeader();
 
-   //Skip playback and/or searching of the header in auT and auTx files
+   //Skip playback and/or searching of *the header data*  in auT and auTx 
+   // files
    //(An alternative might be, e.g., raw data extracted from the card 
    // via 'dd'... there've been cases, e.g. where the formatting was
    // corrupted)
@@ -1013,7 +1015,7 @@ getFragBytes(fragListIndex, &startByte, &endByte);
 */
          printf("Writing Header:\n");
          
-         for(i=0; i<256; i++)
+         for(i=0; i<256-8; i++)
          {
             uint8_t formattingIndicatorByte = 255-i;
             
@@ -1026,6 +1028,20 @@ getFragBytes(fragListIndex, &startByte, &endByte);
                return 1;
             }
          }
+
+         char sampleRateString[8] = { [0 ... 7] = '\0' };
+         snprintf(sampleRateString, 8, "%d%c", sampleRate, 
+                              ((srAssumed) ? '?' : '\0'));
+
+         int bytesWritten =
+            fwrite(sampleRateString, sizeof(uint8_t), 8, outFile);
+         if(bytesWritten != 8)
+         {
+               printf("Unable to write header\n");
+               perror(NULL);
+               return 1;
+         }
+
          char newHeaderData[256] = { [0 ... 255] = '\0' };
 
          time_t now;
@@ -1060,9 +1076,11 @@ getFragBytes(fragListIndex, &startByte, &endByte);
          char moreHeaderData[256];
 
          snprintf(moreHeaderData, 256, "Boot Num: %d\n"
-                                       "Time Since Boot: %s -> %s\n",
+                                       "Time Since Boot: %s -> %s\n"
+                                       "Sample Rate%s: %dS/s\n",
                (int)((fragList2[fragListIndex].loopNum)>>4),
-               memoStartTimeString, memoEndTimeString);
+               memoStartTimeString, memoEndTimeString,
+               (srAssumed ? "(Assumed)" : ""), sampleRate);
 
          strncat(newHeaderData, moreHeaderData, 255-strlen(newHeaderData));
 
@@ -1253,10 +1271,10 @@ getFragBytes(fragListIndex, &startByte, &endByte);
    }
 
    #define OUT_SAMPLES_PER_IN_SAMPLE \
-            ((float)(SAMPLE_RATE) / (float)(FILE_SAMPLE_RATE))
+            ((float)(SAMPLE_RATE) / (float)(sampleRate))
 
    #define IN_SAMPLES_PER_OUT_SAMPLE \
-            ((float)(FILE_SAMPLE_RATE) / (float)(SAMPLE_RATE))
+            ((float)(sampleRate) / (float)(SAMPLE_RATE))
 
    #define IN_FRAMES_PER_BUFFER \
             ((IN_SAMPLES_PER_OUT_SAMPLE) * (float)(FRAMES_PER_BUFFER))
@@ -1273,7 +1291,7 @@ getFragBytes(fragListIndex, &startByte, &endByte);
    // off_t is signed, so putting a large negative value here will assure
    // that it displays *immediately* when starting (rather'n waiting for a
    // full second before displaying)
-   off_t lastPrinted_o = -(FILE_SAMPLE_RATE*2)*2;
+   off_t lastPrinted_o = -(sampleRate*2)*2;
    uint8_t dataPrinted = FALSE;
 
    printf("Beginning Playback... q-<enter> to quit\n");
@@ -1404,13 +1422,13 @@ getFragBytes(fragListIndex, &startByte, &endByte);
 
       loopCount++;
       
-      if(now_o - lastPrinted_o > FILE_SAMPLE_RATE*2)
+      if(now_o - lastPrinted_o > sampleRate*2)
       {
          static uint8_t lastPrintedChars = 0;
          lastPrinted_o = now_o;
 
       
-         //uint64_t secTotal = (now_o / (FILE_SAMPLE_RATE*2));
+         //uint64_t secTotal = (now_o / (sampleRate*2));
 
          //uint64_t hours = secTotal / (60*60);
          //uint64_t minutes = (secTotal - (hours*60*60))/60;
@@ -1503,8 +1521,8 @@ getFragBytes(fragListIndex, &startByte, &endByte);
       if((int)numInSamples != (int)numSamplesToGrab) //0)
       {
          printf("read %d input samples, expected %d. (at %dS/s)\n", 
-         //numInSamples, (int)IN_FRAMES_PER_BUFFER, (int)FILE_SAMPLE_RATE);
-         numInSamples, (int)numSamplesToGrab, (int)FILE_SAMPLE_RATE);
+         //numInSamples, (int)IN_FRAMES_PER_BUFFER, (int)sampleRate);
+         numInSamples, (int)numSamplesToGrab, (int)sampleRate);
          break;
       }
 
@@ -2044,7 +2062,7 @@ void searchForText(int useUsageTable, off_t searchBegin_o, off_t searchLimit_o)
 
 int timeStringFromBytes(char* string, off_t bytes)
 {
-   uint64_t secTotal = (bytes / (FILE_SAMPLE_RATE * FILE_SAMPLE_BYTES));
+   uint64_t secTotal = (bytes / (sampleRate * FILE_SAMPLE_BYTES));
    uint64_t hours = secTotal / (60*60);
    uint64_t minutes = (secTotal - (hours*60*60))/60;
    uint64_t secs = secTotal - hours*60*60 - minutes*60;
@@ -2062,7 +2080,7 @@ int printTimeFromBytes(off_t bytes)
 {
    int printedChars = 0;
 /*
-   uint64_t secTotal = (bytes / (FILE_SAMPLE_RATE * FILE_SAMPLE_BYTES));
+   uint64_t secTotal = (bytes / (sampleRate * FILE_SAMPLE_BYTES));
    uint64_t hours = secTotal / (60*60);
    uint64_t minutes = (secTotal - (hours*60*60))/60;
    uint64_t secs = secTotal - hours*60*60 - minutes*60;
@@ -2084,7 +2102,7 @@ int printPosition(off_t position_o, uint8_t printReturn)
 {
    int printedChars = 0;
 /*
-   uint64_t secTotal = (position_o / (FILE_SAMPLE_RATE
+   uint64_t secTotal = (position_o / (sampleRate
                                        * FILE_SAMPLE_BYTES));
    uint64_t hours = secTotal / (60*60);
    uint64_t minutes = (secTotal - (hours*60*60))/60;
@@ -2123,7 +2141,7 @@ uint64_t scanPosition(char *string)
    if(scanRet == 3)
    {
 //    printf("%"PRIu32"h%"PRIu32"m%"PRIu32"s = %"PRIu32"s\n", h,m,s,
-      return (uint64_t)(FILE_SAMPLE_RATE) * (uint64_t)(FILE_SAMPLE_BYTES) 
+      return (uint64_t)(sampleRate) * (uint64_t)(FILE_SAMPLE_BYTES) 
             * ((uint64_t)h*(uint64_t)60*(uint64_t)60 
                 + (uint64_t)m*(uint64_t)60 + (uint64_t)s);
    }
@@ -2448,8 +2466,64 @@ int loadHeader(void)
          exit(1);
    }
 
+   //a/o audioThing v60 and audioThing-desktop v7p20:
+   // The FORMATHEADER now contains the sample-rate as a string in the last
+   // 8 bytes... We'll attempt to extract that here, and if it's not there,
+   // we'll assume we're working with an old version...
+   uint8_t headerEndSkip = 0;
+   
+   //Because there are 8 bytes available for the sample-rate, and the
+   //sample-rate is in samples/sec, it'd be *very unlikely* we'd use more
+   //than 5, certainly no more than 6 non-null characters...
+   //The remainder are '\0'
+   // (e.g. "19230")
+   //So, for now, we're defining that the sample-rate is stored in the
+   //format-header if the last two characters are '\0'
+   if((headerData[FORMATHEADER_SIZE-1] == '\0') &&
+      (headerData[FORMATHEADER_SIZE-2] == '\0'))
+   {
+      printf("FormatHeader: SampleRate Bytes: '%s'\n",
+            (char*)(&(headerData[FORMATHEADER_SIZE-8])));
+      //The 6th byte can be a "?" to indicate that the value was assumed,
+      //not so much for extracted-files, but for extraction from an
+      // audioThing card that didn't have sampleRate info. 
+      char character = '\0';
+
+      int scanCount = 
+         sscanf((char*)&(headerData[FORMATHEADER_SIZE-8]), "%d%c",
+                                              &sampleRate, &character);
+      
+      if(scanCount == 1)
+      {
+         printf("Potential Sample-Rate read from the Potential format-header: %dS/s\n",
+                                                            sampleRate);
+         headerEndSkip = 8;
+         srAssumed=FALSE;
+      }
+      else if((scanCount == 2) && (character == '?'))
+      {
+         printf("Potential Sample-Rate read from the Potential format-header: %dS/s\n",
+                                                            sampleRate);
+         printf(" This value is marked as 'assumed'\n");
+
+         headerEndSkip = 8;
+         srAssumed=TRUE;
+      }
+      else
+         printf("Unable to read Sample-Rate from the format-header\n"
+       "Either the format is incorrect or this is an old audioThing file\n"
+                "Assuming sample-rate = 19230S/s\n");
+
+      //either headerEndSkip has been set, or it's still 0
+      // in which case, the old header-processing should still work
+      // (and obviously fail)
+   }
+   
+   
+   
+   
    //i will either start at 0, or 6...
-   for(; i<FORMATHEADER_SIZE; i++)
+   for(; i<FORMATHEADER_SIZE-headerEndSkip; i++)
    {
       //Since there's likely a case where a single byte matches both
       // auT and auTx headers, make sure we don't rewrite the
@@ -2483,7 +2557,7 @@ int loadHeader(void)
       }
    }
 
-   if((i != FORMATHEADER_SIZE) || (headerType == NO_HEADER))
+   if((i != FORMATHEADER_SIZE-headerEndSkip) || (headerType == NO_HEADER))
    {
       printf("Unrecognized Header\n");
       headerType = NO_HEADER;
@@ -2599,6 +2673,7 @@ int sortUT(void) //int loopMaxUnused)
       int markedChunkCount = 0;
 
       printf("Marked chunks sorted by loopNum: (ut_index)\n");
+#warning "TODO: This apparently crashes if the ut is empty?"
       while(1) //will use break...
       {
          nextMin = 0xffff;
