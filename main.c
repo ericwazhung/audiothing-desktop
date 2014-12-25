@@ -2729,7 +2729,15 @@ int sortUT(void) //int loopMaxUnused)
             }
          }
 
-         if(loopNum == loopMax)  //We're done...
+         //THIS IS WHERE IT GOT STUCK:
+         // (I'm guessing)
+         // ... prior to v7p21
+         // ... when the usage-table is empty (every byte is 0)
+         // Since loopNum == 1, and loopMax == 0, loopNum keeps increasing
+         //if(loopNum == loopMax)  //We're done...
+         //There shouldn't be any other case where loopNum could increment
+         //beyond loopMax, right...?
+         if(loopNum >= loopMax)
             break;
          else
          {
