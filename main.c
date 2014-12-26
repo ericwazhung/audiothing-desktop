@@ -246,8 +246,12 @@ int memoFragments[USAGETABLE_SIZE][USAGETABLE_SIZE] =
 
 
 
+//This is the sample-rate used on the original audioThing
+// And, most-likely, will only be necessary when reading cards/files
+// written by versions earlier than v60(61?)
+#define SAMPLE_RATE_DEFAULT 19230
 
-int sampleRate = 19230;
+int sampleRate = SAMPLE_RATE_DEFAULT;
 int srAssumed = 1;
 
 off_t numBlocksPerChunk;
@@ -355,6 +359,60 @@ void displayUsage(void)
 }
 
 float volume=1.;
+
+//v7p22: Thoughts on silence when the volume's too high--likely due to an
+//uncentered signal that, when amplified a lot, ends up being a
+//reasonably-loud signal but with an offset that pushes it past the rail...
+//
+//e.g. currently, the range is 464-470, obviously not centered around 512
+//     at v=10 this is audible, surprisingly, and relatively clear
+//     but v=12 results in near-silence.
+// So, instead, have a variable offset, similar to AC-coupling.
+//     The sampleOffset, then, is the (roughly) DC-offset of the incoming
+//     samples. (464+470)/2 = 468.
+// Except:
+//     The DC-offset seems to vary as the AC part increases.
+//     So, I guess we need some way of varying it slowly
+//
+//     The basic idea is a simple filter... something like this:
+//    _   _
+//   / \_/ \  >---/\/\/\---+----> DC-Offset
+//                         |
+//                       -----
+//                       -----
+//                         |
+//                        GND
+//
+//   In software this can be, essentially:
+//   (for each sample)
+//   Out = old + (in-old)/som'n
+//
+//   where som'n basically affects the amount of effect the new sample has
+//   on the output... which in turn affects how much time, e.g., it takes
+//   for the output to match a constant input. (I suppose: T=RC?)
+//
+//        v---offsetDelay----v
+//         __________________|_____________ 
+//        |       __----¯¯¯¯¯|
+//        |   .-¯¯           |--> Increasing "som'n" shifts this right
+//        | .¯
+//        |/
+// -----------------------------------------> t 
+//Since audioThing is 10-bits, the largest value being 1023, then the
+//initial DC-offset assumption is centered at 512...
+//This'll be adjusted as necessary.
+float sampleOffset = 512;
+
+//So this is "som'n"
+// And, just completely winging it, I'm guessing it's something like 3
+// times the number of constant DC samples until the output matches the
+// input...
+//
+// So, e.g. say you want the DC-offset to take a full second (might be too
+// much, we'll see) then it should be, guessing, about 3*the sample-rate.
+#define OFFSET_DELAY_MULTIPLIER 3
+// offsetDelay will be adjusted if sampleRate is...
+float offsetDelay = (OFFSET_DELAY_MULTIPLIER * SAMPLE_RATE_DEFAULT);
 
 off_t fileSize;
 
@@ -1576,7 +1634,11 @@ getFragBytes(fragListIndex, &startByte, &endByte);
             sampleMax = buffer_1ch16b[z];
          if( buffer_1ch16b[z] < sampleMin )
             sampleMin = buffer_1ch16b[z];
+        
          
+         sampleOffset = sampleOffset 
+                        + ((float)buffer_1ch16b[z] - sampleOffset) 
+                          / offsetDelay;   
 
       }
 
@@ -1593,7 +1655,8 @@ getFragBytes(fragListIndex, &startByte, &endByte);
 
 
          //This attempts to center samples at 0 and adjust for volume
-         buffer[z][0] = ((float)buffer_1ch16b[iz]-512.)*volume/512.;
+         buffer[z][0] = 
+            ((float)buffer_1ch16b[iz]-sampleOffset)*volume/512.;
 
          //a/o v7p15: volume > 10 results, ultimately, in near silence
          // (all samples out-of-range?)
@@ -2493,22 +2556,23 @@ int loadHeader(void)
       int scanCount = 
          sscanf((char*)&(headerData[FORMATHEADER_SIZE-8]), "%d%c",
                                               &sampleRate, &character);
-      
-      if(scanCount == 1)
-      {
-         printf("Potential Sample-Rate read from the Potential format-header: %dS/s\n",
-                                                            sampleRate);
-         headerEndSkip = 8;
-         srAssumed=FALSE;
-      }
-      else if((scanCount == 2) && (character == '?'))
-      {
-         printf("Potential Sample-Rate read from the Potential format-header: %dS/s\n",
-                                                            sampleRate);
-         printf(" This value is marked as 'assumed'\n");
 
+      //sampleRate has been written...
+      if(scanCount >= 1)
+      {
+         offsetDelay = OFFSET_DELAY_MULTIPLIER * sampleRate;
          headerEndSkip = 8;
-         srAssumed=TRUE;
+
+         printf("Potential Sample-Rate read from the Potential format-header: %dS/s\n",
+                                                            sampleRate);
+
+         if(scanCount == 1)
+            srAssumed=FALSE;
+         else if((scanCount == 2) && (character == '?'))
+         {
+            printf(" This value is marked as 'assumed'\n");
+            srAssumed=TRUE;
+         }
       }
       else
          printf("Unable to read Sample-Rate from the format-header\n"
