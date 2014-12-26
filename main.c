@@ -54,7 +54,7 @@
  //My OSX system has died, so I cannot test its #defines...
  // So, define this as appropriate (TRUE if you're using OSX)
  // (And comment-out the error, above)
- #define __MYDEF_MAC_OS_X__ FALSaE
+ #define __MYDEF_MAC_OS_X__ FALSE
 #endif
 
 
