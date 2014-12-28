@@ -50,11 +50,18 @@
 
 
 #ifndef __linux
-#error "This error can be removed very easily... see the comments below it, in the source code"
+#error "On OSX: This error can be removed very easily... see the comments below it, in the source code. On Windows, things may be difficult, as this requires direct-access to the SD-Card (without a mountable file-system)"
  //My OSX system has died, so I cannot test its #defines...
  // So, define this as appropriate (TRUE if you're using OSX)
  // (And comment-out the error, above)
  #define __MYDEF_MAC_OS_X__ FALSE
+
+
+ //WINDOWS: Because this requires direct-access to the SD-Card
+ //         (Because the SD-Card is formatted without a filesystem)
+ //         I have no idea what you'd have to do... Sorry!
+ //         FAT32 on the 'audioThing' device *may* be in the works...
+ //         Stay tuned....?
 #endif
 
 
@@ -330,6 +337,8 @@ void printTimeEstimate(off_t done, off_t total, struct timeval startTime)
    printf(" %d:%02d", remainingMinutes, remainingSeconds);
 }
 
+void displayPlaybackUsage(void);
+
 void displayUsage(void)
 {
    printf("audiothing [args] <file>\n"
@@ -350,8 +359,16 @@ void displayUsage(void)
           "                   or: '0x000138' byte-position\n"
           "\n"
           "Playback:\n"
-          " Except for -e and -s, audio playback will occur\n"
-          "    During playback commands can be entered:\n"
+          " Except for -e and -s, audio playback will occur\n");
+
+   displayPlaybackUsage();
+}
+
+void displayPlaybackUsage(void)
+{
+   printf(
+          "  During playback the following commands can be entered:\n"
+          "    h<return>          Display this list of playback-options\n"
           "    v=<float><return>  Set the volume to <float> (1=normal)\n"
           "    s=<float><return>  Set the playback speed to <float>\n"
           "                       (1=normal, 0.1=min, 10=max)\n"
@@ -1425,7 +1442,12 @@ getFragBytes(fragListIndex, &startByte, &endByte);
       }
       else if(stringIndex >= 0)
       {
-         if(1==sscanf(inString, "v=%f", &volume))
+         if(inString[0] == 'h')
+         {
+            displayPlaybackUsage();
+            stringIndex=-1;
+         }
+         else if(1==sscanf(inString, "v=%f", &volume))
          {
             printf("Volume=%f\n", volume);
             stringIndex=-1;
