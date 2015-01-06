@@ -472,10 +472,16 @@ endif
 
 #This is an attempt at trying to figure out whether to use myrm.sh or rm
 #MYRMEXISTS = $(shell if [ -e /Users/meh/myexecs/myrm.sh ] ; then echo 1 ; else echo 0 ; fi )
-MYRMEXISTS = $(shell which myrm.sh > /dev/null ; echo $? )
+#This doesn't work, apparently...
+# It works (with ifeq 1, below) when myrm.sh *does* exist,
+# but not when it doesn't.
+#MYRMEXISTS = $(shell which myrm.sh > /dev/null ; echo $? )
+MYRMLOCATION = $(shell which myrm.sh)
+
 
 #ifeq ($(MYRMEXISTS),0)
-ifeq ($(MYRMEXISTS),1)
+#ifeq ($(MYRMEXISTS),1)
+ifeq ($(MYRMLOCATION),)
 REMOVE = rm -r -f
 else
 #REMOVE = /Users/meh/myexecs/myrm.sh --dont-ls-subdirs -r -f
@@ -1182,7 +1188,7 @@ endif
 # *    and add a link at the pages above.
 # *
 # * This license added to the original file located at:
-# * /home/meh/audioThing/7p16-git/_commonCode_localized/_make/reallyCommon2.mk
+# * /home/meh/audioThing/7p22-autoOffset/_commonCode_localized/_make/reallyCommon2.mk
 # *
 # *    (Wow, that's a lot longer than I'd hoped).
 # *
